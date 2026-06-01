@@ -1,0 +1,26 @@
+# Data (too large for git - regenerate with scrape/parse/index commands)
+data/papers/*.pdf
+data/index/
+data/chunks/
+
+# Environment
+.env
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
