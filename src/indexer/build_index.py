@@ -41,7 +41,7 @@ def load_chunks() -> list[dict]:
 def build_faiss_index(chunks: list[dict]):
     """Build FAISS index from chunk embeddings."""
     print(f"Loading embedding model: {EMBEDDING_MODEL}")
-    model = SentenceTransformer(EMBEDDING_MODEL)
+    model = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True)
 
     texts = [c["text"] for c in chunks]
     print(f"Encoding {len(texts)} chunks...")

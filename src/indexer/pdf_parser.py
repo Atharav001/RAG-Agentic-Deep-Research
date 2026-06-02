@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.config import PAPERS_DIR, METADATA_DIR, CHUNKS_DIR, CHUNK_SIZE, CHUNK_OVERLAP
+from src.config import PAPERS_DIR, METADATA_DIR, CHUNKS_DIR, CHUNK_SIZE, CHUNK_OVERLAP, CHUNK_PREFIX_ENABLED
 
 
 def extract_text_from_pdf(pdf_path: Path) -> str:
@@ -121,6 +121,11 @@ def process_single_paper(pdf_path: Path, arxiv_id: str, metadata: dict) -> list[
     for section_info in sections:
         section_chunks = chunk_text(section_info["text"])
         for chunk_text_str in section_chunks:
+            if CHUNK_PREFIX_ENABLED:
+                title = metadata.get("title", "")
+                section = section_info["section"]
+                abstract = metadata.get("abstract", "")
+                chunk_text_str = f'[Paper: {title}] [Section: {section}] [Abstract: {abstract[:150]}...] \n\n {chunk_text_str}'
             all_chunks.append({
                 "chunk_id": f"{arxiv_id}_chunk_{chunk_idx}",
                 "arxiv_id": arxiv_id,

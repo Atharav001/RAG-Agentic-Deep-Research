@@ -12,7 +12,7 @@ import re
 from src.agent.llm_client import call_llm
 
 
-def plan(question: str) -> list[str]:
+def plan(question: str, provider: str = "groq") -> list[str]:
     """Decompose a research question into sub-questions."""
     prompt = f"""You are a research assistant. Decompose the following research question into 2-5 focused sub-questions that, when answered together, will fully address the original question.
 
@@ -23,7 +23,7 @@ Question: {question}
 Return ONLY a JSON array of sub-question strings. No explanation.
 Example: ["What is X?", "How does Y compare to Z?"]"""
 
-    response = call_llm(prompt)
+    response = call_llm(prompt, provider=provider)
     # Parse JSON array from response
     try:
         # Find JSON array in response
@@ -37,7 +37,7 @@ Example: ["What is X?", "How does Y compare to Z?"]"""
     return [question]
 
 
-def reflect(question: str, evidence: list[dict], round_num: int) -> dict:
+def reflect(question: str, evidence: list[dict], round_num: int, provider: str = "groq") -> dict:
     """
     Evaluate whether collected evidence is sufficient to answer the question.
 
@@ -64,7 +64,7 @@ Evaluate:
 Return ONLY a JSON object:
 {{"sufficient": true/false, "reasoning": "...", "refined_queries": ["query1", "query2"]}}"""
 
-    response = call_llm(prompt)
+    response = call_llm(prompt, provider=provider)
     try:
         match = re.search(r"\{.*\}", response, re.DOTALL)
         if match:
@@ -75,7 +75,14 @@ Return ONLY a JSON object:
     return {"sufficient": True, "reasoning": "Could not parse reflection", "refined_queries": []}
 
 
-def synthesize(question: str, evidence: list[dict]) -> str:
+def compress_context(query: str, evidence_texts: list, client_function=call_llm) -> list:
+    joined = "\n\n".join(evidence_texts)
+    prompt = f"Extract only the 1-2 sentences that answer this query: {query}. Return as a simple string.\n\nContext:\n{joined}"
+    response = client_function(prompt, provider="groq")
+    return [response.strip()]
+
+
+def synthesize(question: str, evidence: list[dict], provider: str = "groq") -> str:
     """
     Write a research answer using ONLY the provided evidence, with inline citations.
     Citations use arXiv IDs: [XXXX.XXXXX]
@@ -92,7 +99,7 @@ def synthesize(question: str, evidence: list[dict]) -> str:
     evidence_text = "\n\n".join(
         f"[Source: {e['arxiv_id']}] Title: {e.get('title', 'N/A')}\n"
         f"Section: {e.get('section', 'unknown')}\n"
-        f"Content: {e['text'][:800]}"
+        f"Content: {e.get('compressed_text') or e['text'][:500]}"
         for e in unique_evidence
     )
 
@@ -112,58 +119,19 @@ Evidence:
 
 Write a comprehensive answer with inline citations:"""
 
-    return call_llm(prompt)
+    return call_llm(prompt, provider=provider)
 
 
-def verify_citations(answer: str, evidence: list[dict]) -> str:
-    """
-    Verify that each citation in the answer is actually supported by the cited source.
-    Remove or flag unsupported citations.
-    """
-    # Extract all citations from answer
-    cited_ids = set(re.findall(r"\[(\d{4}\.\d{4,5})\]", answer))
+def verify_citations(answer: str, evidence: list[dict], provider: str = "groq") -> str:
+    cited_ids_in_evidence = {e["arxiv_id"] for e in evidence}
+    citation_pattern = re.compile(r"\[(\d{4}\.\d{4,5})\]")
+    sentence_pattern = re.compile(r'[^.!?]*\[\d{4}\.\d{4,5}\][^.!?]*[.!?]')
 
-    if not cited_ids:
-        return answer
+    cleaned_sentences = []
+    for match in sentence_pattern.finditer(answer):
+        sentence = match.group()
+        ids_in_sentence = citation_pattern.findall(sentence)
+        if all(cid in cited_ids_in_evidence for cid in ids_in_sentence):
+            cleaned_sentences.append(sentence)
 
-    # Build evidence lookup
-    evidence_by_id: dict[str, list[str]] = {}
-    for e in evidence:
-        aid = e["arxiv_id"]
-        if aid not in evidence_by_id:
-            evidence_by_id[aid] = []
-        evidence_by_id[aid].append(e["text"][:500])
-
-    # Build verification context
-    verification_context = ""
-    for cid in cited_ids:
-        if cid in evidence_by_id:
-            texts = "\n".join(evidence_by_id[cid][:3])
-            verification_context += f"\n[{cid}] Evidence:\n{texts}\n"
-        else:
-            verification_context += f"\n[{cid}] NO EVIDENCE FOUND IN RETRIEVED PASSAGES\n"
-
-    prompt = f"""You are a citation verification expert. Your job is to check whether each citation [XXXX.XXXXX] in the answer below is supported by the corresponding evidence.
-
-CRITICAL RULES:
-- Output the EXACT same answer text, preserving ALL formatting
-- ONLY remove citation brackets [XXXX.XXXXX] that have NO supporting evidence
-- Keep ALL citations that have ANY supporting evidence
-- Do NOT rewrite, rephrase, or shorten the answer
-- Do NOT add new text or commentary
-
-Answer to verify:
-{answer}
-
-Source evidence for each citation:
-{verification_context}
-
-Rules:
-- If a citation is supported by its evidence, keep it
-- If a citation is NOT supported or has no matching evidence, remove the citation brackets but keep the text
-- Return the corrected answer with only verified citations
-- Do not change the content or meaning, only fix citation accuracy
-
-Return the corrected answer:"""
-
-    return call_llm(prompt)
+    return " ".join(cleaned_sentences) if cleaned_sentences else answer

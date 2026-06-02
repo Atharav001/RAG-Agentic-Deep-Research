@@ -55,8 +55,9 @@ CHUNK_SIZE = 512  # tokens per chunk
 CHUNK_OVERLAP = 64  # token overlap between chunks
 
 # Embedding settings
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 EMBEDDING_DIMENSION = 384
+CHUNK_PREFIX_ENABLED = True
 
 # Reranker settings
 RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"

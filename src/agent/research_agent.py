@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.agent.components import plan, reflect, synthesize, verify_citations
+from src.agent.components import plan, reflect, synthesize, verify_citations, compress_context
 from src.agent.llm_client import call_llm
 from src.indexer.retriever import HybridRetriever
 from src.config import MAX_REFLECTION_ROUNDS, FINAL_TOP_K
@@ -30,6 +30,7 @@ class AgentConfig:
     use_planner: bool = True
     use_reflector: bool = True
     use_citation_verifier: bool = True
+    use_compressor: bool = True
     use_semantic: bool = True
     use_bm25: bool = True
     use_reranker: bool = True
@@ -54,11 +55,12 @@ class AgentConfig:
 
 # Predefined configurations for ablation study
 CONFIGS = {
-    "full_agent": AgentConfig(name="full_agent"),
+    "full_agent": AgentConfig(use_compressor=True, name="full_agent"),
     "baseline": AgentConfig(
         use_planner=False,
         use_reflector=False,
         use_citation_verifier=False,
+        use_compressor=False,
         use_reranker=True,
         use_bm25=True,
         use_semantic=True,
@@ -112,7 +114,7 @@ class ResearchAgent:
         # Step 1: PLAN — decompose into sub-questions
         if self.config.use_planner:
             print("\n[PLAN] Decomposing question...")
-            sub_questions = plan(question)
+            sub_questions = plan(question, provider="groq")
             tool_calls += 1
             trace.sub_questions = sub_questions
             print(f"  Sub-questions: {sub_questions}")
@@ -129,6 +131,13 @@ class ResearchAgent:
             queries = sub_questions if round_num == 1 else sub_questions
             for query in queries:
                 results = self.retriever.retrieve(query, top_k=FINAL_TOP_K)
+                if self.config.use_compressor:
+                    for r in results:
+                        try:
+                            compressed = compress_context(query, [r["text"]])
+                            r["compressed_text"] = compressed[0]
+                        except Exception:
+                            pass
                 round_evidence.extend(results)
                 tool_calls += 1
                 print(f"  Query: '{query[:60]}...' → {len(results)} passages")
@@ -148,7 +157,7 @@ class ResearchAgent:
             # Step 3: REFLECT — check if evidence is sufficient
             if self.config.use_reflector and round_num < MAX_REFLECTION_ROUNDS:
                 print(f"\n[REFLECT] Evaluating evidence sufficiency...")
-                reflection = reflect(question, all_evidence, round_num)
+                reflection = reflect(question, all_evidence, round_num, provider="groq")
                 tool_calls += 1
                 trace.reflections.append(reflection)
                 print(f"  Sufficient: {reflection.get('sufficient', True)}")
@@ -173,14 +182,14 @@ class ResearchAgent:
 
         # Step 5: SYNTHESIZE — write cited answer
         print(f"\n[SYNTHESIZE] Writing answer from {len(all_evidence)} passages...")
-        answer = synthesize(question, all_evidence)
+        answer = synthesize(question, all_evidence, provider="groq")
         tool_calls += 1
         trace.raw_answer = answer
 
         # Step 6: VERIFY — check citations
         if self.config.use_citation_verifier:
             print("\n[VERIFY] Checking citations...")
-            answer = verify_citations(answer, all_evidence)
+            answer = verify_citations(answer, all_evidence, provider="gemini")
             tool_calls += 1
 
         trace.final_answer = answer
