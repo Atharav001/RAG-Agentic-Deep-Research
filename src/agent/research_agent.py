@@ -130,6 +130,7 @@ class ResearchAgent:
 
             queries = sub_questions if round_num == 1 else sub_questions
             for query in queries:
+                time.sleep(0.5)
                 results = self.retriever.retrieve(query, top_k=FINAL_TOP_K)
                 if self.config.use_compressor:
                     for r in results:

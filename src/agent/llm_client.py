@@ -24,7 +24,7 @@ def call_llm(prompt: str, provider: str = "groq", temperature: float = 0.3) -> s
                 error_str = str(e).lower()
                 if "429" in str(e) or "rate" in error_str or "quota" in error_str:
                     if attempt < 2:
-                        time.sleep(5)
+                        time.sleep(10 * (attempt + 1))
                 else:
                     raise
         raise RuntimeError("Failed after 3 retries due to rate limiting")
@@ -43,7 +43,7 @@ def call_llm(prompt: str, provider: str = "groq", temperature: float = 0.3) -> s
                 error_str = str(e).lower()
                 if "429" in str(e) or "rate" in error_str or "quota" in error_str or "resource_exhausted" in error_str:
                     if attempt < 2:
-                        time.sleep(5)
+                        time.sleep(10 * (attempt + 1))
                 else:
                     raise
         raise RuntimeError("Failed after 3 retries due to rate limiting")
