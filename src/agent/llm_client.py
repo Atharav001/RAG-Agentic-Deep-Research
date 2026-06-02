@@ -25,6 +25,9 @@ def call_llm(prompt: str, provider: str = "groq", temperature: float = 0.3) -> s
                 if "429" in str(e) or "rate" in error_str or "quota" in error_str or "model_not_found" in error_str:
                     if attempt < 2:
                         time.sleep(15 * (attempt + 1))
+                elif "tokens per day" in error_str:
+                    print(f"  [Groq daily token limit reached: {e}]")
+                    raise
                 else:
                     raise
         raise RuntimeError("Failed after 3 retries due to rate limiting")
