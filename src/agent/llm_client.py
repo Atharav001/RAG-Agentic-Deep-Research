@@ -22,9 +22,9 @@ def call_llm(prompt: str, provider: str = "groq", temperature: float = 0.3) -> s
                 return response.choices[0].message.content
             except Exception as e:
                 error_str = str(e).lower()
-                if "429" in str(e) or "rate" in error_str or "quota" in error_str:
+                if "429" in str(e) or "rate" in error_str or "quota" in error_str or "model_not_found" in error_str:
                     if attempt < 2:
-                        time.sleep(10 * (attempt + 1))
+                        time.sleep(15 * (attempt + 1))
                 else:
                     raise
         raise RuntimeError("Failed after 3 retries due to rate limiting")

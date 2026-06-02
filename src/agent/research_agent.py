@@ -148,6 +148,7 @@ class ResearchAgent:
 
             # Step 3: REFLECT — check if evidence is sufficient
             if self.config.use_reflector and round_num < MAX_REFLECTION_ROUNDS:
+                time.sleep(2)
                 print(f"\n[REFLECT] Evaluating evidence sufficiency...")
                 reflection = reflect(question, all_evidence, round_num, provider="groq")
                 tool_calls += 1
