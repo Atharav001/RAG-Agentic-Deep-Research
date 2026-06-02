@@ -30,26 +30,29 @@ def call_llm(prompt: str, provider: str = "groq", temperature: float = 0.3) -> s
                     raise
                 else:
                     raise
-        raise RuntimeError("Failed after 3 retries due to rate limiting")
+        raise RuntimeError("[Groq] API quota exhausted after 3 retries. Wait for daily reset or upgrade.")
 
     elif provider == "gemini":
-        import google.generativeai as genai
+        from google import genai
 
         api_key = os.environ["GEMINI_API_KEY"]
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        client = genai.Client(api_key=api_key)
+        model = "gemini-2.0-flash"
         for attempt in range(3):
             try:
-                response = model.generate_content(prompt)
+                response = client.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                )
                 return response.text
             except Exception as e:
                 error_str = str(e).lower()
                 if "429" in str(e) or "rate" in error_str or "quota" in error_str or "resource_exhausted" in error_str:
                     if attempt < 2:
-                        time.sleep(10 * (attempt + 1))
+                        time.sleep(5 * (attempt + 1))
                 else:
                     raise
-        raise RuntimeError("Failed after 3 retries due to rate limiting")
+        raise RuntimeError("[Gemini] API quota exhausted after 3 retries. Wait for daily reset or upgrade.")
 
     else:
         raise ValueError(f"Unknown provider: {provider}")
