@@ -75,11 +75,13 @@ Return ONLY a JSON object:
     return {"sufficient": True, "reasoning": "Could not parse reflection", "refined_queries": []}
 
 
-def compress_context(query: str, evidence_texts: list, client_function=call_llm) -> list:
-    joined = "\n\n".join(evidence_texts)
-    prompt = f"Extract only the 1-2 sentences that answer this query: {query}. Return as a simple string.\n\nContext:\n{joined}"
-    response = client_function(prompt, provider="groq")
-    return [response.strip()]
+def compress_context(query: str, evidence_texts: list, client_function=None) -> list:
+    result = []
+    for text in evidence_texts:
+        sentences = re.split(r"(?<=[.!?])\s+", text)
+        compressed = " ".join(sentences[:2])
+        result.append(compressed)
+    return result
 
 
 def synthesize(question: str, evidence: list[dict], provider: str = "groq") -> str:

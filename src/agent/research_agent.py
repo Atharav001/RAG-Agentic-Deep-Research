@@ -19,7 +19,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.agent.components import plan, reflect, synthesize, verify_citations, compress_context
-from src.agent.llm_client import call_llm
 from src.indexer.retriever import HybridRetriever
 from src.config import MAX_REFLECTION_ROUNDS, FINAL_TOP_K
 
@@ -130,15 +129,7 @@ class ResearchAgent:
 
             queries = sub_questions if round_num == 1 else sub_questions
             for query in queries:
-                time.sleep(0.5)
                 results = self.retriever.retrieve(query, top_k=FINAL_TOP_K)
-                if self.config.use_compressor:
-                    for r in results:
-                        try:
-                            compressed = compress_context(query, [r["text"]])
-                            r["compressed_text"] = compressed[0]
-                        except Exception:
-                            pass
                 round_evidence.extend(results)
                 tool_calls += 1
                 print(f"  Query: '{query[:60]}...' → {len(results)} passages")
@@ -181,7 +172,17 @@ class ResearchAgent:
         # Store evidence in trace for evaluation
         trace.all_evidence = all_evidence
 
-        # Step 5: SYNTHESIZE — write cited answer
+        # Step 5: Compress context (optional, one batch LLM call)
+        if self.config.use_compressor and all_evidence:
+            print(f"\n[COMPRESS] Compressing {len(all_evidence)} passages...")
+            for e in all_evidence:
+                try:
+                    compressed = compress_context(question, [e["text"]])
+                    e["compressed_text"] = compressed[0]
+                except Exception:
+                    pass
+
+        # Step 6: SYNTHESIZE — write cited answer
         print(f"\n[SYNTHESIZE] Writing answer from {len(all_evidence)} passages...")
         answer = synthesize(question, all_evidence, provider="groq")
         tool_calls += 1
