@@ -43,6 +43,8 @@ class AgentConfig:
             components.append("reflector")
         if self.use_citation_verifier:
             components.append("citation_verifier")
+        if self.use_compressor:
+            components.append("compressor")
         if self.use_semantic:
             components.append("semantic")
         if self.use_bm25:
@@ -70,6 +72,7 @@ CONFIGS = {
     "no_reflector": AgentConfig(use_reflector=False, name="no_reflector"),
     "no_hybrid": AgentConfig(use_bm25=False, name="no_hybrid"),
     "no_citation_verifier": AgentConfig(use_citation_verifier=False, name="no_citation_verifier"),
+    "no_compressor": AgentConfig(use_compressor=False, name="no_compressor"),
 }
 
 
@@ -100,7 +103,7 @@ class ResearchAgent:
             use_reranker=config.use_reranker,
         )
 
-    def run(self, question: str) -> tuple[str, AgentTrace]:
+    def run(self, question: str, q_type: str = "factoid") -> tuple[str, AgentTrace]:
         """Run the full agent loop on a question. Returns (answer, trace)."""
         start_time = time.time()
         trace = AgentTrace(question=question, config_name=self.config.name)
@@ -113,7 +116,7 @@ class ResearchAgent:
         # Step 1: PLAN — decompose into sub-questions
         if self.config.use_planner:
             print("\n[PLAN] Decomposing question...")
-            sub_questions = plan(question, provider="groq")
+            sub_questions = plan(question, provider="ollama")
             tool_calls += 1
             trace.sub_questions = sub_questions
             print(f"  Sub-questions: {sub_questions}")
@@ -127,9 +130,15 @@ class ResearchAgent:
             print(f"\n[RETRIEVE] Round {round_num}...")
             round_evidence = []
 
-            queries = sub_questions if round_num == 1 else sub_questions
+            queries = sub_questions if round_num == 1 else reflection.get("refined_queries", sub_questions)
             for query in queries:
                 results = self.retriever.retrieve(query, top_k=FINAL_TOP_K)
+                if self.config.use_compressor and results:
+                    compressed_list = compress_context(query, results)
+                    compressed_map = {item["arxiv_id"]: item["compressed_text"] for item in compressed_list}
+                    for e in results:
+                        if e["arxiv_id"] in compressed_map:
+                            e["compressed_text"] = compressed_map[e["arxiv_id"]]
                 round_evidence.extend(results)
                 tool_calls += 1
                 print(f"  Query: '{query[:60]}...' → {len(results)} passages")
@@ -150,7 +159,7 @@ class ResearchAgent:
             if self.config.use_reflector and round_num < MAX_REFLECTION_ROUNDS:
                 time.sleep(2)
                 print(f"\n[REFLECT] Evaluating evidence sufficiency...")
-                reflection = reflect(question, all_evidence, round_num, provider="gemini")
+                reflection = reflect(question, all_evidence, round_num, provider="ollama")
                 tool_calls += 1
                 trace.reflections.append(reflection)
                 print(f"  Sufficient: {reflection.get('sufficient', True)}")
@@ -173,36 +182,28 @@ class ResearchAgent:
         # Store evidence in trace for evaluation
         trace.all_evidence = all_evidence
 
-        # Step 5: Compress context (optional, one batch LLM call)
-        if self.config.use_compressor and all_evidence:
-            print(f"\n[COMPRESS] Compressing {len(all_evidence)} passages...")
-            for e in all_evidence:
-                try:
-                    compressed = compress_context(question, [e["text"]])
-                    e["compressed_text"] = compressed[0]
-                except Exception:
-                    pass
-
-        # Step 6: SYNTHESIZE — write cited answer
+        # Step 5: SYNTHESIZE — write cited answer
         print(f"\n[SYNTHESIZE] Writing answer from {len(all_evidence)} passages...")
-        answer = synthesize(question, all_evidence, provider="groq")
+        raw_answer = synthesize(question, all_evidence, provider="ollama", q_type=q_type)
         tool_calls += 1
-        trace.raw_answer = answer
+        trace.raw_answer = raw_answer
 
         # Step 6: VERIFY — check citations
         if self.config.use_citation_verifier:
             print("\n[VERIFY] Checking citations...")
-            answer = verify_citations(answer, all_evidence, provider="gemini")
+            final_answer = verify_citations(raw_answer, all_evidence)
             tool_calls += 1
+        else:
+            final_answer = raw_answer
 
-        trace.final_answer = answer
+        trace.final_answer = final_answer
         trace.total_tool_calls = tool_calls
         trace.latency_seconds = time.time() - start_time
 
         # Extract cited arXiv IDs
-        trace.cited_arxiv_ids = list(set(re.findall(r"\[(\d{4}\.\d{4,5})\]", answer)))
+        trace.cited_arxiv_ids = list(set(re.findall(r"\[(\d{4}\.\d{4,5})\]", final_answer)))
 
         print(f"\n[DONE] {tool_calls} tool calls, {trace.latency_seconds:.1f}s")
         print(f"  Cited papers: {trace.cited_arxiv_ids}")
 
-        return answer, trace
+        return final_answer, trace

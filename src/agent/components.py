@@ -75,16 +75,28 @@ Return ONLY a JSON object:
     return {"sufficient": True, "reasoning": "Could not parse reflection", "refined_queries": []}
 
 
-def compress_context(query: str, evidence_texts: list, client_function=None) -> list:
+def compress_context(query: str, evidence_list: list[dict], provider: str = "ollama") -> list[dict]:
     result = []
-    for text in evidence_texts:
-        sentences = re.split(r"(?<=[.!?])\s+", text)
-        compressed = " ".join(sentences[:2])
-        result.append(compressed)
+    for ev in evidence_list:
+        text = ev.get("compressed_text") or ev["text"]
+        try:
+            response = call_llm(
+                f"Query: {query}\nPassage: {text}\n\nExtract ONLY the 1-2 sentences that answer the query. If none, output 'NONE'.",
+                provider=provider,
+                temperature=0.0
+            )
+            compressed = response.strip()
+            if compressed.upper() == "NONE" or not compressed:
+                continue
+            result.append({"arxiv_id": ev["arxiv_id"], "compressed_text": compressed})
+        except Exception:
+            sentences = re.split(r"(?<=[.!?])\s+", text)
+            fallback = " ".join(sentences[:2])
+            result.append({"arxiv_id": ev["arxiv_id"], "compressed_text": fallback})
     return result
 
 
-def synthesize(question: str, evidence: list[dict], provider: str = "groq") -> str:
+def synthesize(question: str, evidence: list[dict], provider: str = "groq", q_type: str = "factoid") -> str:
     """
     Write a research answer using ONLY the provided evidence, with inline citations.
     Citations use arXiv IDs: [XXXX.XXXXX]
@@ -105,9 +117,19 @@ def synthesize(question: str, evidence: list[dict], provider: str = "groq") -> s
         for e in unique_evidence
     )
 
+    if q_type == "factoid":
+        length_constraint = "LENGTH CONSTRAINT: You must answer in exactly 1 to 3 sentences maximum. Do not write a paragraph."
+    elif q_type == "comparative":
+        length_constraint = "LENGTH CONSTRAINT: Write between 100 and 300 words."
+    elif q_type == "survey":
+        length_constraint = "LENGTH CONSTRAINT: Write a comprehensive synthesis between 250 and 600 words. You must cite at least 4 papers."
+    else:
+        length_constraint = ""
+
     prompt = f"""You are a research assistant writing an answer to a research question based ONLY on the provided evidence from academic papers.
 
 Rules:
+{length_constraint}
 - Use ONLY information from the provided evidence
 - Cite every claim with the arXiv ID in brackets, e.g., [2210.03629]
 - Be specific and detailed
@@ -124,16 +146,21 @@ Write a comprehensive answer with inline citations:"""
     return call_llm(prompt, provider=provider)
 
 
-def verify_citations(answer: str, evidence: list[dict], provider: str = "groq") -> str:
-    cited_ids_in_evidence = {e["arxiv_id"] for e in evidence}
-    citation_pattern = re.compile(r"\[(\d{4}\.\d{4,5})\]")
-    sentence_pattern = re.compile(r'[^.!?]*\[\d{4}\.\d{4,5}\][^.!?]*[.!?]')
+def verify_citations(answer: str, evidence: list[dict], provider: str = "ollama") -> str:
+    valid_ids = sorted({e["arxiv_id"] for e in evidence})
+    valid_ids_string = ", ".join(valid_ids)
 
-    cleaned_sentences = []
-    for match in sentence_pattern.finditer(answer):
-        sentence = match.group()
-        ids_in_sentence = citation_pattern.findall(sentence)
-        if all(cid in cited_ids_in_evidence for cid in ids_in_sentence):
-            cleaned_sentences.append(sentence)
+    prompt = (
+        f"You are a strict citation auditor. Valid paper IDs: {valid_ids_string}. "
+        f"Read the following text. If a sentence cites an ID NOT in the valid list, "
+        f"completely delete that sentence. If a sentence cites a valid ID, keep it "
+        f"exactly as is. Do not change wording. Output only the final cleaned text.\n\n"
+        f"Text: {answer}"
+    )
 
-    return " ".join(cleaned_sentences) if cleaned_sentences else answer
+    try:
+        response = call_llm(prompt, provider=provider, temperature=0.0)
+        cleaned = response.strip()
+        return cleaned if cleaned else answer
+    except Exception:
+        return answer

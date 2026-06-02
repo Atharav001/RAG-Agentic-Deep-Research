@@ -42,7 +42,7 @@ Score the answer on a scale of 1-5:
 
 Return ONLY a JSON object: {{"score": <int>, "reasoning": "<brief explanation>"}}"""
 
-    response = call_llm(prompt)
+    response = call_llm(prompt, provider="ollama", temperature=0.1)
     try:
         match = re.search(r"\{.*\}", response, re.DOTALL)
         if match:
@@ -75,7 +75,7 @@ Score faithfulness on a scale of 1-5:
 
 Return ONLY a JSON object: {{"score": <int>, "reasoning": "<brief explanation>"}}"""
 
-    response = call_llm(prompt)
+    response = call_llm(prompt, provider="ollama", temperature=0.1)
     try:
         match = re.search(r"\{.*\}", response, re.DOTALL)
         if match:

@@ -29,6 +29,17 @@ def load_questions() -> list[dict]:
     return questions
 
 
+def extract_cited_papers(answer: str) -> list[str]:
+    """Extract clean arXiv IDs from answer text using regex."""
+    all_citations = re.findall(r'\[([^]]+)\]', answer)
+    clean_ids = set()
+    for c in all_citations:
+        match = re.search(r'(\d{4}\.\d{4,5})', c)
+        if match:
+            clean_ids.add(match.group(1))
+    return sorted(clean_ids)
+
+
 def run_config(config_name: str, questions: list[dict]) -> list[dict]:
     """Run a single config on all questions and save predictions."""
     config = CONFIGS[config_name]
@@ -41,13 +52,18 @@ def run_config(config_name: str, questions: list[dict]) -> list[dict]:
 
     for i, q in enumerate(questions):
         print(f"\n--- Question {i+1}/{len(questions)} (ID: {q['id']}) ---")
-        answer, trace = agent.run(q["question"])
+        q_type = q.get("type", "factoid")
+        answer, trace = agent.run(q["question"], q_type=q_type)
+
+        cited_papers = extract_cited_papers(answer)
 
         prediction = {
+            "id": q["id"],
             "question_id": q["id"],
             "question": q["question"],
             "answer": answer,
-            "cited_arxiv_ids": trace.cited_arxiv_ids,
+            "cited_papers": cited_papers,
+            "cited_arxiv_ids": cited_papers,
             "latency": trace.latency_seconds,
             "tool_calls": trace.total_tool_calls,
             "sub_questions": trace.sub_questions,
@@ -81,7 +97,7 @@ def run_all_ablations():
 
     all_results = {}
     config_names = ["full_agent", "baseline", "no_planner", "no_reranker",
-                    "no_reflector", "no_hybrid", "no_citation_verifier"]
+                    "no_reflector", "no_hybrid", "no_citation_verifier", "no_compressor"]
 
     for config_name in config_names:
         run_config(config_name, questions)
