@@ -1,35 +1,39 @@
+<div align="center">
+
 # Submission Format
 
-Each configuration produces a `predictions/<config>.jsonl` file.
+</div>
 
-## Line format (one JSON object per line):
+Your system must produce a single predictions.jsonl file in this exact format. One line per question, matching the IDs in questions.jsonl.
+
+Example line (pretty-printed here for readability; in the actual file each prediction must be a single line of JSON):
 
 ```json
 {
-  "question_id": "q01",
-  "question": "The original question text",
-  "answer": "The agent's answer with inline citations [XXXX.XXXXX]",
-  "cited_arxiv_ids": ["2210.03629", "2310.11511"],
-  "latency": 12.5,
-  "tool_calls": 8
+  "id": "q01",
+  "answer": "<your system's answer>",
+  "cited_papers": ["2504.19413", "2502.12110"]
 }
 ```
 
-## Required prediction files:
+## Fields
 
-- `predictions/full_agent.jsonl` — all components enabled
-- `predictions/baseline.jsonl` — single-shot retrieval + one LLM call
-- `predictions/no_planner.jsonl` — planner disabled
-- `predictions/no_reranker.jsonl` — reranker disabled
-- `predictions/no_reflector.jsonl` — reflector disabled
-- `predictions/no_hybrid.jsonl` — BM25 disabled (semantic only)
-- `predictions/no_citation_verifier.jsonl` — citation verifier disabled
+- **id**: must match an id in questions.jsonl. All 30 IDs must appear, no duplicates.
+- **answer**: your system's natural-language answer. Plain text. Inline citations of the form [arxiv_id] are encouraged but optional; the cited_papers field is the authoritative citation list for grading.
+- **cited_papers**: flat list of arXiv IDs (no version suffix, no URL, e.g. "2504.19413") that your system used as evidence for this answer. Order is not significant. Duplicates will be deduplicated by the grader.
 
-## Evaluation metrics:
+## Length guidance
 
-- **Answer accuracy** (1-5, LLM-as-judge)
-- **Faithfulness** (1-5, LLM-as-judge)
-- **Citation precision** (|predicted ∩ gold| / |predicted|)
-- **Citation recall** (|predicted ∩ gold| / |gold|)
-- **Latency** (seconds)
-- **Tool-call count**
+- **factoid** answers: 1 to 3 sentences.
+- **comparative** answers: 100 to 300 words.
+- **survey** answers: 250 to 600 words.
+
+## Hard rules
+
+- Do NOT see or modify ground-truth files. The grader holds the hidden groundtruth_private.jsonl and will run scoring after submission.
+- Cite only papers that are actually present in your indexed corpus. Citing a paper your retriever never returned will hurt your citation precision.
+- The grader will use an LLM-as-judge for answer accuracy and faithfulness, and exact-set overlap of cited_papers against the hidden must-cite set for citation precision and recall. Your reported numbers in the report must match what the grader computes within a small tolerance.
+
+## Where it lives
+
+Place predictions.jsonl at the top of your repo. Provide one such file for each configuration you ran (full agent, baseline, and each ablation), under `predictions/<config_name>.jsonl`.

@@ -115,7 +115,7 @@ def evaluate_single(prediction: dict, gold: dict) -> dict:
     """Evaluate a single prediction against gold standard."""
     question = gold["question"]
     answer = prediction["answer"]
-    predicted_ids = prediction.get("cited_arxiv_ids", [])
+    predicted_ids = prediction.get("cited_papers") or prediction.get("cited_arxiv_ids", [])
     gold_ids = gold.get("must_cite_arxiv_ids", [])
     reference_answer = gold.get("reference_answer", "")
 
@@ -172,7 +172,7 @@ def evaluate_config(config_name: str, gold_path: Path | None = None) -> dict:
 
     results = []
     for pred in predictions:
-        qid = pred.get("question_id", "")
+        qid = pred.get("id") or pred.get("question_id", "")
         if qid in gold_by_id:
             result = evaluate_single(pred, gold_by_id[qid])
             results.append(result)
