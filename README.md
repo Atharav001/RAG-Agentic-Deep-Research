@@ -50,22 +50,6 @@ Question → [Planner] → Sub-questions
 | **LLM Backend** | Ollama (gemma3:4b, local inference) |
 | **Output Format** | `{"id": "q01", "answer": "...", "cited_papers": ["..."]}` |
 | **Questions** | 30 (10 factoid, 10 comparative, 10 survey) |
-| **Ablation Configs** | 7 configurations for component-wise evaluation |
-
----
-
-## Ablation Configurations
-
-| Config | Planner | Reflector | Citation Verifier | Compressor | Reranker | BM25 |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| `full_agent` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `baseline` | — | — | — | — | ✅ | ✅ |
-| `no_planner` | — | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `no_reranker` | ✅ | ✅ | ✅ | ✅ | — | ✅ |
-| `no_reflector` | ✅ | — | ✅ | ✅ | ✅ | ✅ |
-| `no_hybrid` | ✅ | ✅ | ✅ | ✅ | ✅ | — |
-| `no_citation_verifier` | ✅ | ✅ | — | ✅ | ✅ | ✅ |
-
 ---
 
 ## Evaluation Metrics
@@ -100,41 +84,6 @@ ollama serve
 
 # Run ablation (terminal 2)
 python run_parallel.py
-```
-
----
-
-## Project Structure
-
-```
-├── eval/
-│   ├── questions.jsonl          # 30 evaluation questions
-│   └── SUBMISSION_FORMAT.md     # Grading schema
-├── predictions/                 # Generated JSONL outputs
-├── data/
-│   ├── metadata/                # Paper metadata
-│   ├── chunks/                  # Chunked text
-│   └── index/                   # FAISS + BM25 indices
-├── src/
-│   ├── agent/
-│   │   ├── llm_client.py        # Ollama API client
-│   │   ├── components.py        # Planner, Reflector, Synthesizer, Verifier
-│   │   └── research_agent.py    # Agent loop + configs
-│   ├── evaluation/
-│   │   ├── evaluator.py         # LLM-as-judge + citation metrics
-│   │   └── run_ablation.py      # Sequential ablation runner
-│   ├── indexer/
-│   │   ├── retriever.py         # Hybrid retriever
-│   │   ├── pdf_parser.py        # PDF → chunks
-│   │   └── build_index.py       # FAISS + BM25 index builder
-│   ├── scraper/
-│   │   └── arxiv_scraper.py     # arXiv API scraper
-│   └── config.py                # Central configuration
-├── run.py                       # CLI entry point
-├── run_parallel.py              # Parallel ablation (4 workers)
-├── validate.py                  # Pre-submission validator
-├── requirements.txt
-└── README.md
 ```
 
 ---
