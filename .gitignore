@@ -1,7 +1,5 @@
 # Data (too large for git - regenerate with scrape/parse/index commands)
 data/papers/*.pdf
-data/index/
-data/chunks/
 
 # Environment
 .env
@@ -24,3 +22,7 @@ Thumbs.db
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Eval artifacts
+predictions/*_eval.json
+ablation_log.txt

@@ -12,7 +12,7 @@ import re
 from src.agent.llm_client import call_llm
 
 
-def plan(question: str, provider: str = "groq") -> list[str]:
+def plan(question: str, provider: str = "ollama") -> list[str]:
     """Decompose a research question into sub-questions."""
     prompt = f"""You are a research assistant. Decompose the following research question into 2-5 focused sub-questions that, when answered together, will fully address the original question.
 
@@ -37,32 +37,21 @@ Example: ["What is X?", "How does Y compare to Z?"]"""
     return [question]
 
 
-def reflect(question: str, evidence: list[dict], round_num: int, provider: str = "groq") -> dict:
+def reflect(question: str, evidence: list[dict], round_num: int, provider: str = "ollama", q_type: str = "factoid") -> dict:
     """
     Evaluate whether collected evidence is sufficient to answer the question.
 
     Returns:
         {"sufficient": bool, "reasoning": str, "refined_queries": list[str]}
     """
-    evidence_text = "\n\n".join(
-        f"[{e['arxiv_id']}] (Section: {e.get('section', 'unknown')})\n{e['text'][:500]}"
-        for e in evidence
-    )
+    unique_ids = sorted(set(e.get("arxiv_id", "") for e in evidence if e.get("arxiv_id")))
 
-    prompt = f"""You are a research evidence evaluator. Analyze whether the following evidence is sufficient to answer the research question.
+    if q_type == "survey":
+        min_needed = 4
+    else:
+        min_needed = 2
 
-Question: {question}
-
-Evidence collected so far (round {round_num}):
-{evidence_text}
-
-Evaluate:
-1. Is the evidence sufficient to write a complete, well-cited answer?
-2. If not, what specific information is still missing?
-3. What refined search queries would help find the missing information?
-
-Return ONLY a JSON object:
-{{"sufficient": true/false, "reasoning": "...", "refined_queries": ["query1", "query2"]}}"""
+    prompt = f"""You are a retrieval manager. Question type: {q_type}. Unique papers found so far: {unique_ids}. Minimum needed: {min_needed} if survey, 2 if comparative/factoid. Output JSON: {{"sufficient": true/false, "reasoning": "...", "refined_queries": ["..."]}}."""
 
     response = call_llm(prompt, provider=provider)
     try:
@@ -96,7 +85,7 @@ def compress_context(query: str, evidence_list: list[dict], provider: str = "oll
     return result
 
 
-def synthesize(question: str, evidence: list[dict], provider: str = "groq", q_type: str = "factoid") -> str:
+def synthesize(question: str, evidence: list[dict], provider: str = "ollama", q_type: str = "factoid") -> str:
     """
     Write a research answer using ONLY the provided evidence, with inline citations.
     Citations use arXiv IDs: [XXXX.XXXXX]

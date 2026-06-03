@@ -6,18 +6,12 @@ feedparser>=6.0.0
 PyMuPDF>=1.24.0
 
 # Embeddings & retrieval
-sentence-transformers>=2.7.0
+sentence-transformers>=3.0.0
 faiss-cpu>=1.8.0
 rank-bm25>=0.2.2
 
 # Reranker
 torch>=2.0.0
-
-# Vector store
-chromadb>=0.5.0
-
-# LLM backend (free tier)
-google-generativeai>=0.8.0
 
 # Evaluation
 numpy>=1.26.0
@@ -26,7 +20,3 @@ pandas>=2.2.0
 # Utilities
 tqdm>=4.66.0
 python-dotenv>=1.0.0
-
-groq>=0.4.0
-google-genai>=1.0.0
-sentence-transformers>=3.0.0

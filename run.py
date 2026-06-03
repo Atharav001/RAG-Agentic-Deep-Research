@@ -67,7 +67,7 @@ def cmd_evaluate():
     from src.config import PREDICTIONS_DIR
 
     configs = ["full_agent", "baseline", "no_planner", "no_reranker",
-               "no_reflector", "no_hybrid", "no_citation_verifier"]
+               "no_reflector", "no_hybrid", "no_citation_verifier", "no_compressor"]
     results = {}
     for c in configs:
         pred_path = PREDICTIONS_DIR / f"{c}.jsonl"

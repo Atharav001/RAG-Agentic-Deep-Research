@@ -81,7 +81,12 @@ def run_config(config_name: str, questions: list[dict]) -> list[dict]:
     output_path = PREDICTIONS_DIR / f"{config_name}.jsonl"
     with open(output_path, "w") as f:
         for pred in predictions:
-            f.write(json.dumps(pred) + "\n")
+            submission_format = {
+                "id": pred.get("id"),
+                "answer": pred.get("answer"),
+                "cited_papers": pred.get("cited_papers", [])
+            }
+            f.write(json.dumps(submission_format) + "\n")
     print(f"\nPredictions saved to {output_path}")
 
     return predictions

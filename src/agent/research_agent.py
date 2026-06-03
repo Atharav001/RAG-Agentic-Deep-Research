@@ -159,7 +159,7 @@ class ResearchAgent:
             if self.config.use_reflector and round_num < MAX_REFLECTION_ROUNDS:
                 time.sleep(2)
                 print(f"\n[REFLECT] Evaluating evidence sufficiency...")
-                reflection = reflect(question, all_evidence, round_num, provider="ollama")
+                reflection = reflect(question, all_evidence, round_num, provider="ollama", q_type=q_type)
                 tool_calls += 1
                 trace.reflections.append(reflection)
                 print(f"  Sufficient: {reflection.get('sufficient', True)}")

@@ -73,11 +73,5 @@ SEMANTIC_WEIGHT = 0.7  # weight for semantic in hybrid retrieval
 MAX_REFLECTION_ROUNDS = 3  # max retrieval-reflection loops
 MAX_SUB_QUESTIONS = 5  # max planner decomposition
 
-# LLM settings
-LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
-LLM_TEMPERATURE = 0.1
-LLM_MAX_TOKENS = 4096
-
 # Evaluation settings
-JUDGE_MODEL = LLM_MODEL
 EVAL_QUESTIONS_PATH = EVAL_DIR / "questions.jsonl"

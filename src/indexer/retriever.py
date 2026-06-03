@@ -26,6 +26,26 @@ from src.config import (
     SEMANTIC_WEIGHT,
 )
 
+# Global model cache — loaded once, shared across all HybridRetriever instances
+_cached_embed_model: SentenceTransformer | None = None
+_cached_reranker: CrossEncoder | None = None
+
+
+def _get_embed_model() -> SentenceTransformer:
+    """Return a cached SentenceTransformer instance (loaded once globally)."""
+    global _cached_embed_model
+    if _cached_embed_model is None:
+        _cached_embed_model = SentenceTransformer(EMBEDDING_MODEL)
+    return _cached_embed_model
+
+
+def _get_reranker() -> CrossEncoder:
+    """Return a cached CrossEncoder instance (loaded once globally)."""
+    global _cached_reranker
+    if _cached_reranker is None:
+        _cached_reranker = CrossEncoder(RERANKER_MODEL)
+    return _cached_reranker
+
 
 class HybridRetriever:
     """Hybrid retriever with toggleable components for ablation."""
@@ -47,7 +67,7 @@ class HybridRetriever:
         # Load FAISS index + embedding model
         if self.use_semantic:
             self.faiss_index = faiss.read_index(str(INDEX_DIR / "faiss_index.bin"))
-            self.embed_model = SentenceTransformer(EMBEDDING_MODEL)
+            self.embed_model = _get_embed_model()
 
         # Load BM25 index
         if self.use_bm25:
@@ -56,7 +76,7 @@ class HybridRetriever:
 
         # Load reranker
         if self.use_reranker:
-            self.reranker = CrossEncoder(RERANKER_MODEL)
+            self.reranker = _get_reranker()
 
     def semantic_search(self, query: str, top_k: int = RETRIEVAL_TOP_K) -> list[tuple[int, float]]:
         """Return (chunk_index, score) pairs from FAISS."""
