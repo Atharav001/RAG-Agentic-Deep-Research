@@ -18,28 +18,6 @@ An autonomous deep research agent that answers complex questions over a corpus o
 
 ---
 
-## Architecture
-
-```
-Question → [Planner] → Sub-questions
-                ↓
-        [Hybrid Retriever]
-        Semantic (FAISS) + BM25
-        + Cross-Encoder Reranker
-                ↓
-         [Compressor] → Query-relevant sentences
-                ↓
-         [Reflector] → Sufficient?
-           ↓ Yes    ↓ No
-      [Synthesizer]  Refine queries → loop
-            ↓
-     [Citation Verifier]
-            ↓
-     Answer + Cited Papers
-```
-
----
-
 ## ⚡ Key Engineering Differentiators
 
 This system was engineered with a focus on retrieval precision, strict grading compliance, and unconditional reproducibility.
@@ -81,22 +59,13 @@ This system was engineered with a focus on retrieval precision, strict grading c
 ## Quick Start
 
 ```bash
-# Clone
-git clone https://github.com/Atharav001/RAG-Agentic-Deep-Research.git
-cd RAG-Agentic-Deep-Research
-
-# Install
 pip install -r requirements.txt
-
-# Pull model
 ollama pull gemma3:4b
-
-# Start Ollama (terminal 1)
-ollama serve
-
-# Run ablation (terminal 2)
+ollama serve        # keep running in background
 python run_parallel.py
 ```
+
+Outputs 7 prediction files to `predictions/`.
 
 ---
 
