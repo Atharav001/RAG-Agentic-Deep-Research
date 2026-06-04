@@ -6,6 +6,9 @@ and produces predictions/<config>.jsonl files.
 import json
 import re
 from pathlib import Path
+from typing import List
+
+from pydantic import BaseModel, Field, field_validator
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -13,6 +16,27 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.agent.research_agent import ResearchAgent, CONFIGS, AgentConfig
 from src.evaluation.evaluator import evaluate_config
 from src.config import EVAL_DIR, PREDICTIONS_DIR
+
+
+class Prediction(BaseModel):
+    """Schema-validated prediction record for submission."""
+    id: str = Field(..., description="Question ID (e.g., 'q01')")
+    answer: str = Field(..., description="Generated answer text")
+    cited_papers: List[str] = Field(
+        default_factory=list,
+        description="List of arXiv IDs cited in the answer"
+    )
+
+    @field_validator("cited_papers")
+    @classmethod
+    def validate_arxiv_ids(cls, v: List[str]) -> List[str]:
+        """Ensure all cited papers match the arXiv ID format (YYMM.NNNNN)."""
+        pattern = re.compile(r"^\d{4}\.\d{4,5}$")
+        cleaned = [pid for pid in v if pattern.match(pid)]
+        return sorted(set(cleaned))
+
+    def to_jsonl(self) -> str:
+        return self.model_dump_json()
 
 
 def load_questions() -> list[dict]:
@@ -57,6 +81,12 @@ def run_config(config_name: str, questions: list[dict]) -> list[dict]:
 
         cited_papers = extract_cited_papers(answer)
 
+        submission = Prediction(
+            id=q["id"],
+            answer=answer,
+            cited_papers=cited_papers,
+        )
+
         prediction = {
             "id": q["id"],
             "question_id": q["id"],
@@ -77,16 +107,16 @@ def run_config(config_name: str, questions: list[dict]) -> list[dict]:
 
         predictions.append(prediction)
 
-    # Save predictions
+    # Save predictions via Pydantic validation
     output_path = PREDICTIONS_DIR / f"{config_name}.jsonl"
     with open(output_path, "w") as f:
         for pred in predictions:
-            submission_format = {
-                "id": pred.get("id"),
-                "answer": pred.get("answer"),
-                "cited_papers": pred.get("cited_papers", [])
-            }
-            f.write(json.dumps(submission_format) + "\n")
+            submission = Prediction(
+                id=pred["id"],
+                answer=pred["answer"],
+                cited_papers=pred["cited_papers"],
+            )
+            f.write(submission.to_jsonl() + "\n")
     print(f"\nPredictions saved to {output_path}")
 
     return predictions

@@ -42,9 +42,11 @@ graph TD
 This system was engineered with a focus on retrieval precision, strict grading compliance, and unconditional reproducibility.
 
 - **Context-Enriched Chunking:** Standard chunking destroys cross-sentence context. We prepend the Paper Title and Abstract to every 512-word chunk before embedding. This anchors the vector space, significantly improving semantic retrieval for academic corpora.
+- **Pydantic-Validated Data Pipeline:** All agent state (`AgentConfig`, `AgentTrace`) and submission output (`Prediction`) are typed Pydantic v2 models. The `Prediction` validator enforces strict arXiv ID format (`YYMM.NNNNN`) and strips any malformed citations at the boundary, guaranteeing the autograder receives exactly the schema it expects.
 - **Atomic NLI Verification:** Standard RAG systems use lazy regex to strip hallucinated brackets but leave the fabricated text. Our verifier performs strict ID Boundary Checking—if a sentence cites a paper not in the retrieved evidence list, the sentence is surgically dropped, ensuring high Faithfulness scores.
 - **State-Aware Dynamic Prompting:** The LLM is dynamically constrained based on the question taxonomy (Factoid vs. Comparative vs. Survey) to strictly enforce the grading rubric's word-count limits, preventing token waste.
 - **Parallelized Ablation Engine:** Running 7 configurations × 30 questions sequentially on local hardware is slow. We implemented a ThreadPoolExecutor routing matrix to process 4 concurrent LLM calls, dropping total execution time by over 70%.
+- **Mathematically Sound Hybrid Retrieval (RRF):** Semantic and BM25 rankings are fused using Reciprocal Rank Fusion with k=60 (Cormack et al., 2009): `score(d) = Σ wᵢ / (rankᵢ(d) + 60)`. This is the standard information-retrieval technique for combining heterogeneous rankers without score calibration.
 - **Zero-Footprint Local Inference:** To strictly adhere to the "no credit card on file anywhere" constraint and guarantee 100% reproducibility, the entire LLM backend runs locally via Ollama. No .env API keys are required to reproduce the results.
 
 ---

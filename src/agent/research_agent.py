@@ -11,20 +11,25 @@ The agent follows this loop:
 """
 
 import time
+
 import re
-from dataclasses import dataclass, field
+
+from typing import List
+
+from pydantic import BaseModel, Field
 
 import sys
+
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.agent.components import plan, reflect, synthesize, verify_citations, compress_context
+
 from src.indexer.retriever import HybridRetriever
+
 from src.config import MAX_REFLECTION_ROUNDS, FINAL_TOP_K
 
 
-@dataclass
-class AgentConfig:
+class AgentConfig(BaseModel):
     """Configuration for which agent components are enabled."""
     use_planner: bool = True
     use_reflector: bool = True
@@ -76,17 +81,16 @@ CONFIGS = {
 }
 
 
-@dataclass
-class AgentTrace:
+class AgentTrace(BaseModel):
     """Records the agent's actions for debugging and the trace view."""
     question: str = ""
-    sub_questions: list[str] = field(default_factory=list)
-    retrieval_rounds: list[dict] = field(default_factory=list)
-    reflections: list[dict] = field(default_factory=list)
-    all_evidence: list[dict] = field(default_factory=list)
+    sub_questions: List[str] = Field(default_factory=list)
+    retrieval_rounds: List[dict] = Field(default_factory=list)
+    reflections: List[dict] = Field(default_factory=list)
+    all_evidence: List[dict] = Field(default_factory=list)
     raw_answer: str = ""
     final_answer: str = ""
-    cited_arxiv_ids: list[str] = field(default_factory=list)
+    cited_arxiv_ids: List[str] = Field(default_factory=list)
     total_tool_calls: int = 0
     latency_seconds: float = 0.0
     config_name: str = ""
