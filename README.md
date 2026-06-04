@@ -42,17 +42,18 @@ This system was engineered with a focus on retrieval precision, strict grading c
 | **Questions** | 30 (10 factoid, 10 comparative, 10 survey) |
 ---
 
-## Evaluation Metrics
+## Ablation Configs
 
-| Metric | Type | Scale |
-|---|---|---|
-| Answer Accuracy | LLM-as-judge | 1–5 |
-| Faithfulness | LLM-as-judge | 1–5 |
-| Citation Precision | Set overlap | 0.0–1.0 |
-| Citation Recall | Set overlap | 0.0–1.0 |
-| Citation F1 | Harmonic mean | 0.0–1.0 |
-| Latency | Wall-clock | seconds |
-| Tool Calls | LLM invocations | count |
+| Config | What's disabled |
+|--------|----------------|
+| `full_agent` | Nothing (all components) |
+| `baseline` | Planner, reflector, verifier, compressor |
+| `no_planner` | Question decomposition |
+| `no_reranker` | Cross-encoder reranking |
+| `no_reflector` | Reflection loop |
+| `no_hybrid` | BM25 (semantic only) |
+| `no_citation_verifier` | Citation audit |
+| `no_compressor` | Context compression |
 
 ---
 
@@ -80,6 +81,21 @@ Outputs 7 prediction files to `predictions/`.
 7. **Verify** — NLI-style check removes citations to unretrieved papers
 
 ---
+
+## Corpus
+
+- **Source**: arXiv API (cs.CL, cs.AI, cs.LG), Jan 2024 – Apr 2026
+- **Papers**: 374 (score-filtered from ~4,200 candidates)
+- **Chunks**: 13,656 (512-word overlapping windows)
+
+## Submission Format
+
+Each `predictions/<config>.jsonl` contains 30 lines:
+```json
+{"id": "q01", "answer": "...", "cited_papers": ["2504.19413"]}
+```
+---
+
 
 ## License
 
