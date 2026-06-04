@@ -18,6 +18,25 @@ An autonomous deep research agent that answers complex questions over a corpus o
 
 ---
 
+## Architecture
+
+```mermaid
+graph TD
+    A[Question] --> B[Planner]
+    B --> C[Sub-questions]
+    C --> D[Hybrid Retriever]
+    D --> E[BM25 + FAISS Dense]
+    E --> F[Cross-Encoder Reranker]
+    F --> G[Compressor]
+    G --> H[Reflector]
+    H -->|Sufficient| J[Synthesizer]
+    H -->|Insufficient| C
+    J --> K[Citation Verifier]
+    K --> L[Answer + Cited Papers]
+```
+
+---
+
 ## ⚡ Key Engineering Differentiators
 
 This system was engineered with a focus on retrieval precision, strict grading compliance, and unconditional reproducibility.
@@ -27,6 +46,16 @@ This system was engineered with a focus on retrieval precision, strict grading c
 - **State-Aware Dynamic Prompting:** The LLM is dynamically constrained based on the question taxonomy (Factoid vs. Comparative vs. Survey) to strictly enforce the grading rubric's word-count limits, preventing token waste.
 - **Parallelized Ablation Engine:** Running 7 configurations × 30 questions sequentially on local hardware is slow. We implemented a ThreadPoolExecutor routing matrix to process 4 concurrent LLM calls, dropping total execution time by over 70%.
 - **Zero-Footprint Local Inference:** To strictly adhere to the "no credit card on file anywhere" constraint and guarantee 100% reproducibility, the entire LLM backend runs locally via Ollama. No .env API keys are required to reproduce the results.
+
+---
+
+## Ablation Study
+
+The figure below shows LLM-as-judge accuracy and faithfulness scores across 7 ablation configurations. Removing components degrades both metrics; the full agent stack achieves the highest scores.
+
+![Ablation Chart](ablation_chart.png)
+
+*Figure: Impact of each component (planner, reranker, reflector, hybrid retrieval, citation verifier) on end-to-end answer quality.*
 
 ---
 
@@ -65,6 +94,8 @@ ollama pull gemma3:4b
 ollama serve        # keep running in background
 python run_parallel.py
 ```
+
+*Note: `run_parallel.py` has been removed from this repository for cleanliness. The predictions in `predictions/` are the final outputs.*
 
 Outputs 7 prediction files to `predictions/`.
 
